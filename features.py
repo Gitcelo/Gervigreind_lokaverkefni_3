@@ -20,6 +20,7 @@ import pandas as pd
 import librosa
 from tqdm import tqdm
 import utils
+import win32process
 
 
 def columns():
@@ -59,7 +60,7 @@ def compute_features(tid):
         features[name, 'max'] = np.max(values, axis=1)
 
     try:
-        filepath = utils.get_audio_path(os.environ.get('AUDIO_DIR'), tid)
+        filepath = utils.get_audio_path(os.environ.get('AUDIO_DIR', './data/fma_small'), tid)
         x, sr = librosa.load(filepath, sr=None, mono=True)  # kaiser_fast
 
         f = librosa.feature.zero_crossing_rate(x, frame_length=2048, hop_length=512)
@@ -115,9 +116,10 @@ def main():
                             columns=columns(), dtype=np.float32)
 
     # More than usable CPUs to be CPU bound, not I/O bound. Beware memory.
-    nb_workers = int(1.5 * len(os.sched_getaffinity(0)))
-
-    # Longest is ~11,000 seconds. Limit processes to avoid memory errors.
+    try:
+        nb_workers = int(1.5 * len(os.sched_getaffinity(0)))
+    except AttributeError as e:
+        nb_workers = 10
     table = ((5000, 1), (3000, 3), (2000, 5), (1000, 10), (0, nb_workers))
     for duration, nb_workers in table:
         print('Working with {} processes.'.format(nb_workers))
